@@ -1,0 +1,86 @@
+@startuml
+!define LAYER_COLOR_1 #1a5276
+!define LAYER_COLOR_2 #2e86c1
+!define LAYER_COLOR_3 #85c1e9
+!define LAYER_COLOR_4 #d4e6f1
+
+title Clean Architecture — Dependency Direction (Inward Pointing)
+
+skinparam package {
+    BorderColor #2c3e50
+    FontColor white
+    FontSize 14
+    FontStyle bold
+}
+
+skinparam rectangle {
+    BorderColor #2c3e50
+    FontSize 12
+    RoundCorner 8
+}
+
+skinparam arrow {
+    Color #e74c3c
+    Thickness 2
+    FontSize 11
+    FontColor #e74c3c
+}
+
+package "External" as EXTERNAL #LAYER_COLOR_4 {
+    rectangle "Client\n(HTTP / gRPC)" as CLIENT
+    rectangle "PostgreSQL\nDatabase" as DB
+    rectangle "SMTP Server" as SMTP
+}
+
+package "API / Interface Adapters" as API #LAYER_COLOR_3 {
+    rectangle "Controllers" as CTRL
+    rectangle "Middleware" as MW
+    rectangle "DTOs" as DTO
+    rectangle "Validators" as VAL
+    rectangle "Routing" as ROUTE
+}
+
+package "Infrastructure" as INFRA #LAYER_COLOR_2 {
+    rectangle "Database\nConnection Pool" as DB_POOL
+    rectangle "Postgres\nRepositories" as PG_REPO
+    rectangle "Cache\nAdapter" as CACHE
+    rectangle "Message\nBroker" as BROKER
+    rectangle "Migrations" as MIGRATE
+    rectangle "Logging" as LOG
+}
+
+package "Core / Domain" as CORE #LAYER_COLOR_1 {
+    rectangle "Entities" as ENT
+    rectangle "Value\nObjects" as VO
+    rectangle "Use Cases" as UC
+    rectangle "Repository\nInterfaces" as REPO_IF
+    rectangle "Domain\nServices" as DSVC
+}
+
+CLIENT --> CTRL : HTTP Request
+CTRL --> UC : invokes
+UC --> REPO_IF : depends on
+PG_REPO --> DB : SQL
+MW --> CTRL : filters
+CTRL --> DTO : maps
+DTO --> VAL : validates
+UC --> ENT : manipulates
+UC --> VO : uses
+PG_REPO .left.> REPO_IF : implements
+DB_POOL --> PG_REPO : provides
+CACHE --> PG_REPO : decorates
+BROKER --> UC : notifies
+DSVC --> UC : supports
+
+note top of CLIENT : "Dependency points inward"
+note bottom of CORE : "No external dependencies"
+
+legend right
+  <size:16><b>Layer Dependency Rule</b></size>
+  ======
+  Outer layers depend on inner layers
+  Inner layers NEVER know about outer layers
+  Core has ZERO external dependencies
+endlegend
+
+@enduml

@@ -1,0 +1,39 @@
+# inventory_management_system — Configuration Template
+# Copy to config.yaml and fill in your values.
+
+server:
+  host: "0.0.0.0"
+  port: 8080
+  workers: 4
+  request_timeout_ms: 30000
+
+database:
+  host: "localhost"
+  port: 5432
+  name: "inventory_db"
+  user: "inventory_user"
+  password: "${DB_PASSWORD}"
+  pool_size: 10
+  max_retries: 3
+  retry_delay_ms: 1000
+  ssl_mode: "prefer"
+
+jwt:
+  access_secret: "${JWT_ACCESS_SECRET}"
+  refresh_secret: "${JWT_REFRESH_SECRET}"
+  access_expiry_minutes: 15
+  refresh_expiry_days: 7
+  issuer: "pt-maju-bersama"
+
+logging:
+  level: "info"
+  file: "/var/log/inventory/app.log"
+  max_size_mb: 100
+  max_files: 7
+  pattern: "[%Y-%m-%d %H:%M:%S.%e] [%^%l%$] [%t] %v"
+
+cache:
+  host: "localhost"
+  port: 6379
+  db: 0
+  ttl_seconds: 300

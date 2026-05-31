@@ -1,0 +1,17 @@
+cmake_minimum_required(VERSION 3.27)
+
+function(find_package_safe name)
+    find_package(${name} QUIET ${ARGN})
+    if(NOT ${name}_FOUND)
+        message(WARNING "Package ${name} not found — fetching from source")
+        include(FetchContent)
+    endif()
+endfunction()
+
+find_package_safe(fmt CONFIG)
+find_package_safe(spdlog CONFIG)
+find_package_safe(libpqxx CONFIG)
+find_package_safe(Drogon CONFIG)
+find_package_safe(OpenSSL REQUIRED)
+find_package_safe(nlohmann_json CONFIG)
+find_package_safe(GTest CONFIG)

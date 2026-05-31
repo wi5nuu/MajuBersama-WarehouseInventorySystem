@@ -1,0 +1,149 @@
+@startuml
+title Create Item Flow — POST /api/v1/items
+
+skinparam actor {
+    BorderColor #1a5276
+    FontColor #1a5276
+    FontStyle bold
+}
+
+skinparam participant {
+    BorderColor #2e86c1
+    FontColor white
+    FontSize 13
+    FontStyle bold
+}
+
+skinparam arrow {
+    Color #2c3e50
+    Thickness 1.5
+    FontSize 11
+}
+
+skinparam note {
+    BorderColor #e67e22
+    BackgroundColor #fdf2e9
+    FontColor #2c3e50
+}
+
+actor "Client" as CLIENT #1a5276
+participant "ItemController" as CTRL #2e86c1
+participant "AuthMiddleware" as AUTH #85c1e9
+participant "ValidationMiddleware" as VAL #85c1e9
+participant "CreateItemUseCase" as UC #1a5276
+participant "ItemRepository\n(interface)" as REPO_IF #1a5276
+participant "PostgresItem\nRepository" as PG_REPO #2e86c1
+database "PostgreSQL\nDatabase" as DB #85c1e9
+participant "MessageBroker" as BROKER #2e86c1
+
+== Authentication & Validation ==
+
+CLIENT -> AUTH : POST /api/v1/items\nAuthorization: Bearer <token>\nContent-Type: application/json
+activate AUTH
+
+AUTH -> AUTH : validate_token()
+note right: Decode JWT\ncheck expiry\nverify signature
+
+AUTH --> CLIENT : 401 Unauthorized\n(if invalid)
+deactivate AUTH
+
+AUTH -> CTRL : next()
+deactivate AUTH
+
+CTRL -> VAL : validate(request body)
+activate VAL
+
+VAL -> VAL : validate required fields\n(sku, name, category_id,\nsupplier_id, unit_price)
+note right: Check:\n- sku not empty\n- name length <= 200\n- category_id valid UUID\n- supplier_id valid UUID\n- unit_price >= 0
+
+VAL --> CTRL : ValidationResult
+deactivate VAL
+
+CTRL --> CLIENT : 422 Unprocessable Entity\n(if validation fails)
+
+== Use Case Execution ==
+
+CTRL -> UC : execute(CreateItemRequest)
+activate UC
+
+note right #fdf2e9: Business Rules:\n1. Check SKU uniqueness\n2. Build Item entity\n3. Persist via repository\n4. Publish event\n5. Return result
+
+UC -> REPO_IF : find_by_sku(sku)
+activate REPO_IF
+
+REPO_IF -> PG_REPO : find_by_sku(sku)
+activate PG_REPO
+
+PG_REPO -> DB : SELECT * FROM items\nWHERE sku = $1
+activate DB
+
+DB --> PG_REPO : row / empty
+deactivate DB
+
+PG_REPO --> REPO_IF : Result<Item>
+deactivate PG_REPO
+
+REPO_IF --> UC : Result<Item>
+deactivate REPO_IF
+
+alt SKU already exists
+    UC --> CTRL : std::unexpected(Error::conflict("SKU already exists"))
+    CTRL --> CLIENT : 409 Conflict\n{"error":"SKU already exists"}
+else SKU is unique
+    UC -> UC : build Item entity\nwith generated UUID
+    note right: Create:\nItem(\n  id = Uuid::generate(),\n  sku, name, description,\n  category_id, supplier_id,\n  unit_price, stock = 0,\n  min_stock, status = Active,\n  now(), now()\n)
+
+    UC -> REPO_IF : save(item)
+    activate REPO_IF
+
+    REPO_IF -> PG_REPO : save(item)
+    activate PG_REPO
+
+    PG_REPO -> DB : INSERT INTO items\n(...) VALUES (...)\nRETURNING *
+    activate DB
+
+    DB --> PG_REPO : inserted row
+    deactivate DB
+
+    PG_REPO --> REPO_IF : Result<Item>
+    deactivate PG_REPO
+
+    REPO_IF --> UC : Result<Item>
+    deactivate REPO_IF
+
+    UC -> BROKER : publish(Message{topic="item.created", payload=item_json})
+    activate BROKER
+    note right: Async event for\nnotifications / audit trail
+    BROKER --> UC : Result<void>
+    deactivate BROKER
+
+    UC --> CTRL : Result<Item>
+endif
+
+deactivate UC
+
+== Response ==
+
+CTRL -> CTRL : map Item to ItemResponse DTO
+note right: Convert entity fields\nto API response format
+
+CTRL --> CLIENT : 201 Created\nContent-Type: application/json\n{ "id": "...", "sku": "...", ... }
+
+note bottom of CLIENT
+  Response Body:
+  {
+    "id": "uuid",
+    "sku": "SKU-001",
+    "name": "Item Name",
+    "category_id": "uuid",
+    "supplier_id": "uuid",
+    "unit_price": 1500000,
+    "stock": 0,
+    "min_stock": 10,
+    "status": "active",
+    "created_at": "2026-06-01T10:00:00Z",
+    "updated_at": "2026-06-01T10:00:00Z"
+  }
+end note
+
+@enduml

@@ -1,0 +1,22 @@
+# Logging configuration template
+# Copy to logging.yaml and customize.
+
+loggers:
+  root:
+    level: info
+    sinks:
+      - type: console
+        pattern: "[%Y-%m-%d %H:%M:%S.%e] [%^%l%$] %v"
+      - type: rotating_file
+        path: "/var/log/inventory/app.log"
+        max_size_mb: 100
+        max_files: 7
+        pattern: "[%Y-%m-%d %H:%M:%S.%e] [%^%l%$] [%t] %v"
+  database:
+    level: warn
+    sinks:
+      - type: console
+  http:
+    level: info
+    sinks:
+      - type: console

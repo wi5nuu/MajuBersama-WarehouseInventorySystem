@@ -1,0 +1,20 @@
+#[[.clang-format for inventory_management_system]]
+BasedOnStyle: Google
+IndentWidth: 4
+UseTab: Never
+ColumnLimit: 100
+AccessModifierOffset: -4
+AlignConsecutiveAssignments: true
+AlignConsecutiveDeclarations: true
+AllowShortFunctionsOnASingleLine: Inline
+AlwaysBreakTemplateDeclarations: Yes
+BreakBeforeBraces: Allman
+NamespaceIndentation: All
+FixNamespaceComments: true
+IncludeCategories:
+  - Regex: '^<.*>'
+    Priority: 1
+  - Regex: '^".*"'
+    Priority: 2
+PointerAlignment: Left
+ReferenceAlignment: Left

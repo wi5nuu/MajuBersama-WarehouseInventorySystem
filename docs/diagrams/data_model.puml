@@ -1,0 +1,180 @@
+@startuml
+title Inventory Management System — Database Schema
+
+skinparam class {
+    BorderColor #1a5276
+    BackgroundColor #eaf2f8
+    FontColor #1a5276
+    FontSize 13
+    FontStyle bold
+}
+
+skinparam classAttribute {
+    FontSize 11
+    FontColor #2c3e50
+}
+
+skinparam classHeader {
+    BackgroundColor #2e86c1
+    FontColor white
+    FontSize 14
+    FontStyle bold
+}
+
+skinparam arrow {
+    Color #2c3e50
+    Thickness 1.5
+}
+
+hide empty methods
+
+class "users" as USERS {
+    + id: UUID [PK]
+    + username: VARCHAR(100) [UNIQUE, NOT NULL]
+    + email: VARCHAR(255) [UNIQUE, NOT NULL]
+    + password_hash: VARCHAR(255) [NOT NULL]
+    + role: VARCHAR(20) [NOT NULL]
+    + is_active: BOOLEAN [DEFAULT true]
+    + created_at: TIMESTAMPTZ [DEFAULT NOW()]
+    + updated_at: TIMESTAMPTZ [DEFAULT NOW()]
+    ..
+    + idx_users_email [UNIQUE]
+    + idx_users_username [UNIQUE]
+}
+
+class "categories" as CATEGORIES {
+    + id: UUID [PK]
+    + name: VARCHAR(200) [NOT NULL]
+    + description: TEXT
+    + parent_id: UUID [FK -> categories.id, NULLABLE]
+    + is_active: BOOLEAN [DEFAULT true]
+    + created_at: TIMESTAMPTZ [DEFAULT NOW()]
+    + updated_at: TIMESTAMPTZ [DEFAULT NOW()]
+    ..
+    + idx_categories_parent_id
+}
+
+class "suppliers" as SUPPLIERS {
+    + id: UUID [PK]
+    + code: VARCHAR(50) [UNIQUE, NOT NULL]
+    + name: VARCHAR(200) [NOT NULL]
+    + contact_person: VARCHAR(100)
+    + phone: VARCHAR(50)
+    + email: VARCHAR(255)
+    + address_street: VARCHAR(255)
+    + address_city: VARCHAR(100)
+    + address_province: VARCHAR(100)
+    + address_postal_code: VARCHAR(20)
+    + address_country: VARCHAR(100) [DEFAULT 'Indonesia']
+    + is_active: BOOLEAN [DEFAULT true]
+    + created_at: TIMESTAMPTZ [DEFAULT NOW()]
+    + updated_at: TIMESTAMPTZ [DEFAULT NOW()]
+    ..
+    + idx_suppliers_code [UNIQUE]
+}
+
+class "warehouses" as WAREHOUSES {
+    + id: UUID [PK]
+    + code: VARCHAR(50) [UNIQUE, NOT NULL]
+    + name: VARCHAR(200) [NOT NULL]
+    + address_street: VARCHAR(255)
+    + address_city: VARCHAR(100)
+    + address_province: VARCHAR(100)
+    + address_postal_code: VARCHAR(20)
+    + address_country: VARCHAR(100) [DEFAULT 'Indonesia']
+    + is_active: BOOLEAN [DEFAULT true]
+    + created_at: TIMESTAMPTZ [DEFAULT NOW()]
+    + updated_at: TIMESTAMPTZ [DEFAULT NOW()]
+    ..
+    + idx_warehouses_code [UNIQUE]
+}
+
+class "items" as ITEMS {
+    + id: UUID [PK]
+    + sku: VARCHAR(100) [UNIQUE, NOT NULL]
+    + name: VARCHAR(200) [NOT NULL]
+    + description: TEXT
+    + category_id: UUID [FK -> categories.id, NOT NULL]
+    + supplier_id: UUID [FK -> suppliers.id, NOT NULL]
+    + unit_price_amount: BIGINT [NOT NULL]
+    + unit_price_currency: VARCHAR(3) [DEFAULT 'IDR']
+    + stock_value: BIGINT [DEFAULT 0]
+    + stock_unit: VARCHAR(20) [DEFAULT 'pcs']
+    + min_stock_value: BIGINT [DEFAULT 0]
+    + min_stock_unit: VARCHAR(20) [DEFAULT 'pcs']
+    + status: VARCHAR(20) [DEFAULT 'active']
+    + created_at: TIMESTAMPTZ [DEFAULT NOW()]
+    + updated_at: TIMESTAMPTZ [DEFAULT NOW()]
+    ..
+    + idx_items_sku [UNIQUE]
+    + idx_items_category_id
+    + idx_items_supplier_id
+    + idx_items_status
+}
+
+class "inventory_movements" as MOVEMENTS {
+    + id: UUID [PK]
+    + item_id: UUID [FK -> items.id, NOT NULL]
+    + warehouse_id: UUID [FK -> warehouses.id, NOT NULL]
+    + type: VARCHAR(20) [NOT NULL]
+    + quantity_value: BIGINT [NOT NULL]
+    + quantity_unit: VARCHAR(20) [DEFAULT 'pcs']
+    + reference_type: VARCHAR(50)
+    + reference_id: UUID
+    + notes: TEXT
+    + created_by: UUID [FK -> users.id]
+    + created_at: TIMESTAMPTZ [DEFAULT NOW()]
+    ..
+    + idx_movements_item_id
+    + idx_movements_warehouse_id
+    + idx_movements_created_at
+}
+
+class "audit_logs" as AUDIT_LOGS {
+    + id: BIGSERIAL [PK]
+    + table_name: VARCHAR(100) [NOT NULL]
+    + record_id: UUID [NOT NULL]
+    + action: VARCHAR(20) [NOT NULL]
+    + old_values: JSONB
+    + new_values: JSONB
+    + performed_by: UUID [FK -> users.id]
+    + performed_at: TIMESTAMPTZ [DEFAULT NOW()]
+    ..
+    + idx_audit_table_record
+    + idx_audit_performed_at
+}
+
+CATEGORIES ||-o- CATEGORIES : parent_id
+ITEMS }o--|| CATEGORIES : category_id
+ITEMS }o--|| SUPPLIERS : supplier_id
+MOVEMENTS }o--|| ITEMS : item_id
+MOVEMENTS }o--|| WAREHOUSES : warehouse_id
+MOVEMENTS }o--o| USERS : created_by
+AUDIT_LOGS }o--o| USERS : performed_by
+
+note bottom of USERS
+  User Roles:
+  - admin: full access
+  - manager: CRUD + delete
+  - operator: view, create, update
+  - viewer: read-only
+end note
+
+note bottom of MOVEMENTS
+  Movement Types:
+  - stock_in
+  - stock_out
+  - adjustment
+  - transfer
+  - return
+end note
+
+note bottom of ITEMS
+  Item Statuses:
+  - active
+  - inactive
+  - discontinued
+  - out_of_stock
+end note
+
+@enduml
